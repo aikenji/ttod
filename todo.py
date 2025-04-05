@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 import curses
 import json
 import os
@@ -332,10 +333,10 @@ def main(stdscr):
         elif key == ord("e"):
             if todo_list.todos:
                 current = todo_list.todos[todo_list.cursor_pos]
-                # 使用弹窗编辑文本
+                # edit text in popup
                 new_text = edit_popup(stdscr, "Edit Todo", current.text)
 
-                # 使用弹窗编辑截止日期
+                # edit deadline in popup
                 current_deadline = current.deadline if current.deadline else ""
                 new_deadline = edit_popup(stdscr, "Edit Deadline", current_deadline)
 
