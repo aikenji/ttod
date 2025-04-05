@@ -1,10 +1,10 @@
+import curses
+import json
 import os
 import sys
-import json
-from datetime import datetime, timedelta
-import curses
 from curses import wrapper
-from typing import List, Dict, Optional
+from datetime import datetime, timedelta
+from typing import Dict, List, Optional
 
 
 class TodoItem:
@@ -111,9 +111,6 @@ def get_deadline_color(deadline_str: str) -> int:
     if delta.days < 0:
         # Overdue
         return curses.COLOR_RED
-    elif delta.days == 0:
-        # Due today
-        return curses.COLOR_MAGENTA
     elif delta.days <= 2:
         # Due in 1-2 days
         return curses.COLOR_YELLOW
@@ -131,7 +128,7 @@ def init_colors():
     curses.init_pair(1, curses.COLOR_GREEN, -1)  # Normal
     curses.init_pair(2, curses.COLOR_RED, -1)  # Overdue
     curses.init_pair(3, curses.COLOR_YELLOW, -1)  # Urgent
-    curses.init_pair(4, curses.COLOR_MAGENTA, -1)  # Today
+    curses.init_pair(4, curses.COLOR_MAGENTA, -1)
     curses.init_pair(5, curses.COLOR_CYAN, -1)  # Soon
     curses.init_pair(6, curses.COLOR_WHITE, -1)  # Done
     curses.init_pair(7, curses.COLOR_BLUE, -1)  # Help text
@@ -142,12 +139,20 @@ def draw_todo_list(stdscr, todo_list: TodoList):
     height, width = stdscr.getmaxyx()
 
     # Title
-    title = "Todo List by Dr.G (Press 'h' for help)"
-    stdscr.addstr(0, (width - len(title)) // 2, title, curses.color_pair(7))
+    title = "Todo List by Dr.G"
+    separator = "=" * width
+
+    stdscr.addstr(
+        0, (width - len(title)) // 2, title, curses.color_pair(7) | curses.A_BOLD
+    )
+    stdscr.addstr(1, 0, separator, curses.color_pair(7))
+
+    # Calculate minimum space needed between text and deadline
+    min_space = 4  # Minimum space between text and deadline
 
     # Todo items
     for i, todo in enumerate(todo_list.todos):
-        y = i + 2
+        y = i + 3
         if y >= height - 2:
             break
 
@@ -164,7 +169,7 @@ def draw_todo_list(stdscr, todo_list: TodoList):
         if todo.done:
             text_attr = curses.color_pair(6) | curses.A_DIM
         else:
-            text_attr = curses.color_pair(1)
+            text_attr = curses.color_pair(4)
 
         stdscr.addstr(y, 6, text, text_attr)
 
@@ -177,8 +182,6 @@ def draw_todo_list(stdscr, todo_list: TodoList):
                 color_pair = 2
             elif deadline_color == curses.COLOR_YELLOW:
                 color_pair = 3
-            elif deadline_color == curses.COLOR_MAGENTA:
-                color_pair = 4
             elif deadline_color == curses.COLOR_CYAN:
                 color_pair = 5
             else:
@@ -186,13 +189,15 @@ def draw_todo_list(stdscr, todo_list: TodoList):
 
             deadline_attr = curses.color_pair(color_pair)
             if todo.done:
-                deadline_attr |= curses.A_DIM
+                deadline_attr = curses.color_pair(6) | curses.A_DIM
 
-            deadline_text = f" (due: {todo.deadline})"
-            stdscr.addstr(y, 6 + len(text), deadline_text, deadline_attr)
+            deadline_text = f"({todo.deadline})"
+            # Position deadline at the end of the line
+            deadline_pos = width - len(deadline_text) - 1
+            stdscr.addstr(y, deadline_pos, deadline_text, deadline_attr)
 
     # Status line
-    status_line = f"{len([t for t in todo_list.todos if t.done])}/{len(todo_list.todos)} completed"
+    status_line = f"{len([t for t in todo_list.todos if t.done])}/{len(todo_list.todos)} completed (press h for hlep)"
     stdscr.addstr(height - 2, 0, status_line, curses.color_pair(7))
 
     stdscr.refresh()
@@ -237,14 +242,14 @@ def show_help(stdscr):
 def edit_popup(stdscr, title: str, initial_text: str) -> str:
     height, width = stdscr.getmaxyx()
     popup_h = 3
-    popup_w = min(40, width - 4)
+    popup_w = min(60, width - 4)
 
     y = (height - popup_h) // 2
     x = (width - popup_w) // 2
 
     popup = curses.newwin(popup_h, popup_w, y, x)
     popup.keypad(True)  # 启用特殊键
-    popup.attron(curses.color_pair(7))
+    popup.attron(curses.color_pair(3))
     popup.border()
     popup.border()
     popup.addstr(0, 2, f" {title} ")
@@ -318,10 +323,10 @@ def main(stdscr):
         elif key == ord("d"):
             todo_list.delete(todo_list.cursor_pos)
         elif key == ord("a"):
-            text = get_input(stdscr, "Add todo: ")
+            text = edit_popup(stdscr, "Add todo: ", "")
             if text:
-                deadline = get_input(
-                    stdscr, "Deadline (YYYY-MM-DD, MM-DD, or 'in X days'): "
+                deadline = edit_popup(
+                    stdscr, "Deadline (YYYY-MM-DD, MM-DD, or 'in X days'): ", ""
                 )
                 todo_list.add(text, deadline if deadline else None)
         elif key == ord("e"):
