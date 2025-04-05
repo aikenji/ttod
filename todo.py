@@ -234,6 +234,56 @@ def show_help(stdscr):
     help_win.getch()
 
 
+def edit_popup(stdscr, title: str, initial_text: str) -> str:
+    height, width = stdscr.getmaxyx()
+    popup_h = 3
+    popup_w = min(40, width - 4)
+
+    y = (height - popup_h) // 2
+    x = (width - popup_w) // 2
+
+    popup = curses.newwin(popup_h, popup_w, y, x)
+    popup.keypad(True)  # 启用特殊键
+    popup.attron(curses.color_pair(7))
+    popup.border()
+    popup.border()
+    popup.addstr(0, 2, f" {title} ")
+
+    text = initial_text
+    pos = len(text)
+    popup.addstr(1, 1, text)
+
+    curses.curs_set(1)
+
+    while True:
+        popup.move(1, 1)
+        popup.clrtoeol()
+        popup.addstr(1, 1, text)
+        popup.move(1, pos + 1)
+
+        ch = popup.getch()
+
+        if ch == 10:  # Enter键
+            break
+        elif ch == 27:  # ESC键
+            text = initial_text
+            break
+        elif ch == curses.KEY_BACKSPACE or ch == 127:
+            if pos > 0:
+                text = text[: pos - 1] + text[pos:]
+                pos -= 1
+        elif ch == curses.KEY_LEFT:
+            pos = max(0, pos - 1)
+        elif ch == curses.KEY_RIGHT:
+            pos = min(len(text), pos + 1)
+        elif 32 <= ch <= 126:  # 可打印字符
+            text = text[:pos] + chr(ch) + text[pos:]
+            pos += 1
+
+    curses.curs_set(0)
+    return text
+
+
 def get_input(stdscr, prompt: str) -> str:
     curses.echo()
     stdscr.addstr(curses.LINES - 1, 0, prompt, curses.color_pair(7))
@@ -249,27 +299,8 @@ def get_input(stdscr, prompt: str) -> str:
     return input_str
 
 
-def get_input_with_default(stdscr, prompt: str, default: str = "") -> str:
-    curses.echo()
-    stdscr.addstr(curses.LINES - 1, 0, prompt, curses.color_pair(7))
-    stdscr.clrtoeol()
-    stdscr.addstr(curses.LINES - 1, len(prompt), default)  # 显示默认值
-    stdscr.refresh()
-
-    # 移动光标到输入位置
-    stdscr.move(curses.LINES - 1, len(prompt))
-    input_str = stdscr.getstr(curses.LINES - 1, len(prompt)).decode("utf-8")
-
-    curses.noecho()
-    stdscr.move(curses.LINES - 1, 0)
-    stdscr.clrtoeol()
-    stdscr.refresh()
-
-    return input_str if input_str else default  # 如果直接回车则返回原值
-
-
 def main(stdscr):
-    curses.curs_set(0)  # Hide cursor
+    curses.curs_set(0)  # display cursor
     init_colors()
 
     todo_list = TodoList()
@@ -296,21 +327,20 @@ def main(stdscr):
         elif key == ord("e"):
             if todo_list.todos:
                 current = todo_list.todos[todo_list.cursor_pos]
-                # 使用新函数，传入当前内容作为默认值
-                new_text = get_input_with_default(stdscr, f"Edit todo: ", current.text)
-                if new_text != current.text:  # 只有内容变化时才更新
-                    # 同样处理deadline
-                    current_deadline = current.deadline if current.deadline else ""
-                    new_deadline = get_input_with_default(
-                        stdscr,
-                        f"Edit deadline (current: {current_deadline}): ",
-                        current_deadline,
-                    )
+                # 使用弹窗编辑文本
+                new_text = edit_popup(stdscr, "Edit Todo", current.text)
+
+                # 使用弹窗编辑截止日期
+                current_deadline = current.deadline if current.deadline else ""
+                new_deadline = edit_popup(stdscr, "Edit Deadline", current_deadline)
+
+                if new_text != current.text or new_deadline != current_deadline:
                     todo_list.edit(
                         todo_list.cursor_pos,
                         new_text,
                         new_deadline if new_deadline else None,
                     )
+
         elif key == ord(":"):
             cmd = get_input(stdscr, ":")
             if cmd == "w":
