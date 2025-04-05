@@ -127,13 +127,14 @@ def get_deadline_color(deadline_str: str) -> int:
 
 def init_colors():
     curses.start_color()
-    curses.init_pair(1, curses.COLOR_GREEN, curses.COLOR_BLACK)  # Normal
-    curses.init_pair(2, curses.COLOR_RED, curses.COLOR_BLACK)  # Overdue
-    curses.init_pair(3, curses.COLOR_YELLOW, curses.COLOR_BLACK)  # Urgent
-    curses.init_pair(4, curses.COLOR_MAGENTA, curses.COLOR_BLACK)  # Today
-    curses.init_pair(5, curses.COLOR_CYAN, curses.COLOR_BLACK)  # Soon
-    curses.init_pair(6, curses.COLOR_WHITE, curses.COLOR_BLACK)  # Done
-    curses.init_pair(7, curses.COLOR_BLUE, curses.COLOR_BLACK)  # Help text
+    curses.use_default_colors()  # same color as terminal
+    curses.init_pair(1, curses.COLOR_GREEN, -1)  # Normal
+    curses.init_pair(2, curses.COLOR_RED, -1)  # Overdue
+    curses.init_pair(3, curses.COLOR_YELLOW, -1)  # Urgent
+    curses.init_pair(4, curses.COLOR_MAGENTA, -1)  # Today
+    curses.init_pair(5, curses.COLOR_CYAN, -1)  # Soon
+    curses.init_pair(6, curses.COLOR_WHITE, -1)  # Done
+    curses.init_pair(7, curses.COLOR_BLUE, -1)  # Help text
 
 
 def draw_todo_list(stdscr, todo_list: TodoList):
@@ -141,7 +142,7 @@ def draw_todo_list(stdscr, todo_list: TodoList):
     height, width = stdscr.getmaxyx()
 
     # Title
-    title = "Vim Todo List (Press 'h' for help)"
+    title = "Todo List by Dr.G (Press 'h' for help)"
     stdscr.addstr(0, (width - len(title)) // 2, title, curses.color_pair(7))
 
     # Todo items
@@ -248,6 +249,25 @@ def get_input(stdscr, prompt: str) -> str:
     return input_str
 
 
+def get_input_with_default(stdscr, prompt: str, default: str = "") -> str:
+    curses.echo()
+    stdscr.addstr(curses.LINES - 1, 0, prompt, curses.color_pair(7))
+    stdscr.clrtoeol()
+    stdscr.addstr(curses.LINES - 1, len(prompt), default)  # 显示默认值
+    stdscr.refresh()
+
+    # 移动光标到输入位置
+    stdscr.move(curses.LINES - 1, len(prompt))
+    input_str = stdscr.getstr(curses.LINES - 1, len(prompt)).decode("utf-8")
+
+    curses.noecho()
+    stdscr.move(curses.LINES - 1, 0)
+    stdscr.clrtoeol()
+    stdscr.refresh()
+
+    return input_str if input_str else default  # 如果直接回车则返回原值
+
+
 def main(stdscr):
     curses.curs_set(0)  # Hide cursor
     init_colors()
@@ -276,11 +296,15 @@ def main(stdscr):
         elif key == ord("e"):
             if todo_list.todos:
                 current = todo_list.todos[todo_list.cursor_pos]
-                new_text = get_input(stdscr, f"Edit todo [{current.text}]: ")
-                if new_text:
-                    new_deadline = get_input(
+                # 使用新函数，传入当前内容作为默认值
+                new_text = get_input_with_default(stdscr, f"Edit todo: ", current.text)
+                if new_text != current.text:  # 只有内容变化时才更新
+                    # 同样处理deadline
+                    current_deadline = current.deadline if current.deadline else ""
+                    new_deadline = get_input_with_default(
                         stdscr,
-                        f"New deadline [{current.deadline if current.deadline else 'none'}]: ",
+                        f"Edit deadline (current: {current_deadline}): ",
+                        current_deadline,
                     )
                     todo_list.edit(
                         todo_list.cursor_pos,
