@@ -135,7 +135,7 @@ def init_colors():
     curses.init_pair(7, curses.COLOR_BLUE, -1)  # Help text
 
 
-def draw_todo_list(stdscr, todo_list: TodoList):
+def draw_todo_list(stdscr, todo_list: TodoList, days_mode: bool = False):
     stdscr.clear()
     height, width = stdscr.getmaxyx()
 
@@ -175,6 +175,19 @@ def draw_todo_list(stdscr, todo_list: TodoList):
         stdscr.addstr(y, 6, text, text_attr)
 
         # Deadline
+        deadline_text = ""
+        if todo.deadline:
+            deadline = parse_deadline(todo.deadline)
+            if deadline:
+                if days_mode:
+                    days = (deadline - datetime.now()).days
+                    if days < 0:
+                        deadline_text = f"(overdue {-days}d)"
+                    else:
+                        deadline_text = f"(in {days}d)"
+                else:
+                    deadline_text = f"({todo.deadline})"
+
         if todo.deadline:
             deadline_color = get_deadline_color(todo.deadline)
             color_pair = None
@@ -192,7 +205,6 @@ def draw_todo_list(stdscr, todo_list: TodoList):
             if todo.done:
                 deadline_attr = curses.color_pair(6) | curses.A_DIM
 
-            deadline_text = f"({todo.deadline})"
             # Position deadline at the end of the line
             deadline_pos = width - len(deadline_text) - 1
             stdscr.addstr(y, deadline_pos, deadline_text, deadline_attr)
@@ -218,6 +230,7 @@ def show_help(stdscr):
         "  e - Edit current todo",
         "  d - Delete current todo",
         "  x - Toggle completion status",
+        "  t - Toggle days mode",
         "  :w - Save todos",
         "  :q - Quit",
         "",
@@ -308,11 +321,12 @@ def get_input(stdscr, prompt: str) -> str:
 def main(stdscr):
     curses.curs_set(0)  # display cursor
     init_colors()
+    days_mode = False
 
     todo_list = TodoList()
 
     while True:
-        draw_todo_list(stdscr, todo_list)
+        draw_todo_list(stdscr, todo_list, days_mode)
         key = stdscr.getch()
 
         if key == ord("j"):
@@ -355,6 +369,8 @@ def main(stdscr):
                 break
         elif key == ord("h"):
             show_help(stdscr)
+        elif key == ord("t"):
+            days_mode = not days_mode
         elif key == 27:  # ESC key
             pass
 
