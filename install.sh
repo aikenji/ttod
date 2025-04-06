@@ -1,5 +1,5 @@
 #！/bin/bash
 
-cp ./todo.py a.py 
-chmod 777 a.py
-mv ./a.py /opt/homebrew/bin/todo
+chmod 777 todo.py
+cp ./todo.py /opt/homebrew/bin/todo
+echo "INSTALL SUCESS !!"

@@ -249,7 +249,7 @@ def draw_todo_list(
         status_line += "[S]"
     else:
         status_line += "[ ]"
-    stdscr.addstr(height - 2, 0, status_line, curses.color_pair(7))
+    stdscr.addstr(height - 1, 0, status_line, curses.color_pair(7))
 
     stdscr.refresh()
 
@@ -342,22 +342,6 @@ def edit_popup(stdscr, title: str, initial_text: str) -> str:
     return text
 
 
-# only used in command mode
-def get_input(stdscr, prompt: str) -> str:
-    curses.echo()
-    stdscr.addstr(curses.LINES - 1, 0, prompt, curses.color_pair(7))
-    stdscr.clrtoeol()
-    stdscr.refresh()
-
-    input_str = stdscr.getstr(curses.LINES - 1, len(prompt)).decode("utf-8")
-    curses.noecho()
-    stdscr.move(curses.LINES - 1, 0)
-    stdscr.clrtoeol()
-    stdscr.refresh()
-
-    return input_str
-
-
 def main(stdscr):
     curses.curs_set(0)  # display cursor
     init_colors()
@@ -377,7 +361,9 @@ def main(stdscr):
         elif key == ord("x"):
             todo_list.toggle(todo_list.cursor_pos)
         elif key == ord("d"):
-            todo_list.delete(todo_list.cursor_pos)
+            en = edit_popup(stdscr, "Input y to delete", "")
+            if en == "y":
+                todo_list.delete(todo_list.cursor_pos)
         elif key == ord("a"):
             text = edit_popup(stdscr, "Add todo: ", "")
             if text:
@@ -403,7 +389,7 @@ def main(stdscr):
                     )
 
         elif key == ord(":"):
-            cmd = get_input(stdscr, ":")
+            cmd = edit_popup(stdscr, "Command", "")
             if cmd == "w":
                 todo_list.save()
             elif cmd == "q":
