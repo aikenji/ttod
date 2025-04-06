@@ -2,7 +2,6 @@
 import curses
 import json
 import os
-import sys
 from curses import wrapper
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional
@@ -135,7 +134,38 @@ def init_colors():
     curses.init_pair(7, curses.COLOR_BLUE, -1)  # Help text
 
 
-def draw_todo_list(stdscr, todo_list: TodoList, days_mode: bool = False):
+def sort_todos_by_days(todo_list: TodoList) -> List[TodoItem]:
+    """sorting by due days（completed at bottom）"""
+    now = datetime.now()
+    sorted_todos = []
+
+    for todo in todo_list.todos:
+        if not todo.deadline:
+            # 没有截止日期的排最后（比已完成的稍高）
+            days = float("inf")
+            priority = 1  # 中等优先级
+        else:
+            deadline = parse_deadline(todo.deadline)
+            if deadline:
+                days = (deadline - now).days
+                # 未完成的高优先级，已完成的低优先级
+                priority = 2 if not todo.done else 0
+            else:
+                days = float("inf")
+                priority = 1
+
+        sorted_todos.append((priority, days, todo))
+
+    # 新的排序规则：
+    # 1. 首先按优先级排序（2 > 1 > 0）
+    # 2. 然后按天数排序（正序，天数少的排前面）
+    sorted_todos.sort(key=lambda x: (-x[0], x[1]))
+    return [item[2] for item in sorted_todos]
+
+
+def draw_todo_list(
+    stdscr, todo_list: TodoList, days_mode: bool = False, sorted_by_days: bool = False
+):
     stdscr.clear()
     height, width = stdscr.getmaxyx()
 
@@ -148,11 +178,11 @@ def draw_todo_list(stdscr, todo_list: TodoList, days_mode: bool = False):
     )
     stdscr.addstr(1, 0, separator, curses.color_pair(7))
 
-    # Calculate minimum space needed between text and deadline
-    min_space = 4  # Minimum space between text and deadline
+    # get todo list items
+    display_todos = sort_todos_by_days(todo_list) if sorted_by_days else todo_list.todos
 
     # Todo items
-    for i, todo in enumerate(todo_list.todos):
+    for i, todo in enumerate(display_todos):
         y = i + 3
         if y >= height - 2:
             break
@@ -211,6 +241,14 @@ def draw_todo_list(stdscr, todo_list: TodoList, days_mode: bool = False):
 
     # Status line
     status_line = f"{len([t for t in todo_list.todos if t.done])}/{len(todo_list.todos)} completed (press h for hlep)"
+    if days_mode:
+        status_line += " [D]"
+    else:
+        status_line += " [ ]"
+    if sorted_by_days:
+        status_line += "[S]"
+    else:
+        status_line += "[ ]"
     stdscr.addstr(height - 2, 0, status_line, curses.color_pair(7))
 
     stdscr.refresh()
@@ -231,6 +269,7 @@ def show_help(stdscr):
         "  d - Delete current todo",
         "  x - Toggle completion status",
         "  t - Toggle days mode",
+        "  s - Toggle sorting mode",
         "  :w - Save todos",
         "  :q - Quit",
         "",
@@ -262,7 +301,7 @@ def edit_popup(stdscr, title: str, initial_text: str) -> str:
     x = (width - popup_w) // 2
 
     popup = curses.newwin(popup_h, popup_w, y, x)
-    popup.keypad(True)  # 启用特殊键
+    popup.keypad(True)  # enable special keys
     popup.attron(curses.color_pair(3))
     popup.border()
     popup.border()
@@ -282,9 +321,9 @@ def edit_popup(stdscr, title: str, initial_text: str) -> str:
 
         ch = popup.getch()
 
-        if ch == 10:  # Enter键
+        if ch == 10:  # Enter
             break
-        elif ch == 27:  # ESC键
+        elif ch == 27:  # ESC
             text = initial_text
             break
         elif ch == curses.KEY_BACKSPACE or ch == 127:
@@ -295,7 +334,7 @@ def edit_popup(stdscr, title: str, initial_text: str) -> str:
             pos = max(0, pos - 1)
         elif ch == curses.KEY_RIGHT:
             pos = min(len(text), pos + 1)
-        elif 32 <= ch <= 126:  # 可打印字符
+        elif 32 <= ch <= 126:  # legal char
             text = text[:pos] + chr(ch) + text[pos:]
             pos += 1
 
@@ -303,6 +342,7 @@ def edit_popup(stdscr, title: str, initial_text: str) -> str:
     return text
 
 
+# only used in command mode
 def get_input(stdscr, prompt: str) -> str:
     curses.echo()
     stdscr.addstr(curses.LINES - 1, 0, prompt, curses.color_pair(7))
@@ -322,11 +362,12 @@ def main(stdscr):
     curses.curs_set(0)  # display cursor
     init_colors()
     days_mode = False
+    sorted_by_days = False
 
     todo_list = TodoList()
 
     while True:
-        draw_todo_list(stdscr, todo_list, days_mode)
+        draw_todo_list(stdscr, todo_list, days_mode, sorted_by_days)
         key = stdscr.getch()
 
         if key == ord("j"):
@@ -371,6 +412,8 @@ def main(stdscr):
             show_help(stdscr)
         elif key == ord("t"):
             days_mode = not days_mode
+        elif key == ord("s"):
+            sorted_by_days = not sorted_by_days
         elif key == 27:  # ESC key
             pass
 
