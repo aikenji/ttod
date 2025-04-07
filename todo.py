@@ -132,6 +132,9 @@ def init_colors():
     curses.init_pair(5, curses.COLOR_CYAN, -1)  # Soon
     curses.init_pair(6, curses.COLOR_WHITE, -1)  # Done
     curses.init_pair(7, curses.COLOR_BLUE, -1)  # Help text
+    MY_WHITE = 10
+    curses.init_color(MY_WHITE, 900, 900, 900)
+    curses.init_pair(10, MY_WHITE, -1)
 
 
 def sort_todos_by_days(todo_list: TodoList) -> List[Tuple[TodoItem, int]]:
@@ -169,7 +172,7 @@ def draw_todo_list(
     height, width = stdscr.getmaxyx()
 
     # Title
-    title = "Todo List by Dr.G"
+    title = "Todo List by Dr.G ver 1.0"
     separator = "=" * width
 
     stdscr.addstr(
@@ -196,7 +199,11 @@ def draw_todo_list(
 
         # Checkbox
         checkbox = "[x]" if todo.done else "[ ]"
-        stdscr.addstr(y, 2, checkbox)
+        if todo.done:
+            checkbox_attr = curses.color_pair(1)
+        else:
+            checkbox_attr = curses.color_pair(10)
+        stdscr.addstr(y, 2, checkbox, checkbox_attr)
 
         # Text
         text = todo.text
@@ -243,7 +250,7 @@ def draw_todo_list(
             stdscr.addstr(y, deadline_pos, deadline_text, deadline_attr)
 
     # Status line
-    status_line = f"{len([t for t in todo_list.todos if t.done])}/{len(todo_list.todos)} completed (press h for hlep)"
+    status_line = f"{len([t for t in todo_list.todos if t.done])}/{len(todo_list.todos)} completed "
     if days_mode:
         status_line += " [D]"
     else:

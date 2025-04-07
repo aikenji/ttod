@@ -2,15 +2,25 @@
 vim-like terminal todo list app 
 
 TODO: 2025-04-04
-- [ ] can fix the each remainder
-- [ ] add feature of timer
-- [ ] add the sorting feature
+- [x] can fix the each remainder
+- [x] add feature of timer
+- [x] add the sorting feature
 
-# how to install
+## how to install
 
 write these codes on the terminal
 ```bash
 sh ./install.sh
 ```
 
-then input `todo` to startup.
+## how to use
+input `todo` to startup. Press `h` for help.
+
+- a - add new todo
+- e - edit current todo
+- d - delete current todo
+- x - toggle completion status
+- t - toggle days mode
+- s - toggle sorting mode
+- :w - save todos
+- :q - quit and autosave
