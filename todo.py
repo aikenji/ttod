@@ -4,7 +4,7 @@ import json
 import os
 from curses import wrapper
 from datetime import datetime, timedelta
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
 
 
 class TodoItem:
@@ -134,33 +134,32 @@ def init_colors():
     curses.init_pair(7, curses.COLOR_BLUE, -1)  # Help text
 
 
-def sort_todos_by_days(todo_list: TodoList) -> List[TodoItem]:
+def sort_todos_by_days(todo_list: TodoList) -> List[Tuple[TodoItem, int]]:
     """sorting by due days（completed at bottom）"""
     now = datetime.now()
     sorted_todos = []
 
-    for todo in todo_list.todos:
+    for idx, todo in enumerate(todo_list.todos):
         if not todo.deadline:
-            # 没有截止日期的排最后（比已完成的稍高）
             days = float("inf")
-            priority = 1  # 中等优先级
+            priority = 1
         else:
             deadline = parse_deadline(todo.deadline)
             if deadline:
                 days = (deadline - now).days
-                # 未完成的高优先级，已完成的低优先级
                 priority = 2 if not todo.done else 0
             else:
                 days = float("inf")
                 priority = 1
 
-        sorted_todos.append((priority, days, todo))
+        sorted_todos.append((priority, days, todo, idx))
 
     # 新的排序规则：
     # 1. 首先按优先级排序（2 > 1 > 0）
     # 2. 然后按天数排序（正序，天数少的排前面）
     sorted_todos.sort(key=lambda x: (-x[0], x[1]))
-    return [item[2] for item in sorted_todos]
+    # return (sorted_todos, original_index)
+    return [(item[2], item[3]) for item in sorted_todos]
 
 
 def draw_todo_list(
@@ -179,7 +178,11 @@ def draw_todo_list(
     stdscr.addstr(1, 0, separator, curses.color_pair(7))
 
     # get todo list items
-    display_todos = sort_todos_by_days(todo_list) if sorted_by_days else todo_list.todos
+    display_todos = (
+        [item[0] for item in sort_todos_by_days(todo_list)]
+        if sorted_by_days
+        else todo_list.todos
+    )
 
     # Todo items
     for i, todo in enumerate(display_todos):
@@ -352,6 +355,11 @@ def main(stdscr):
 
     while True:
         draw_todo_list(stdscr, todo_list, days_mode, sorted_by_days)
+        idx = (
+            [item[1] for item in sort_todos_by_days(todo_list)]
+            if sorted_by_days
+            else range(len(todo_list.todos))
+        )
         key = stdscr.getch()
 
         if key == ord("j"):
@@ -359,11 +367,11 @@ def main(stdscr):
         elif key == ord("k"):
             todo_list.move_up()
         elif key == ord("x"):
-            todo_list.toggle(todo_list.cursor_pos)
+            todo_list.toggle(idx[todo_list.cursor_pos])
         elif key == ord("d"):
             en = edit_popup(stdscr, "Input y to delete", "")
             if en == "y":
-                todo_list.delete(todo_list.cursor_pos)
+                todo_list.delete(idx[todo_list.cursor_pos])
         elif key == ord("a"):
             text = edit_popup(stdscr, "Add todo: ", "")
             if text:
@@ -373,7 +381,7 @@ def main(stdscr):
                 todo_list.add(text, deadline if deadline else None)
         elif key == ord("e"):
             if todo_list.todos:
-                current = todo_list.todos[todo_list.cursor_pos]
+                current = todo_list.todos[idx[todo_list.cursor_pos]]
                 # edit text in popup
                 new_text = edit_popup(stdscr, "Edit Todo", current.text)
 
@@ -383,7 +391,7 @@ def main(stdscr):
 
                 if new_text != current.text or new_deadline != current_deadline:
                     todo_list.edit(
-                        todo_list.cursor_pos,
+                        idx[todo_list.cursor_pos],
                         new_text,
                         new_deadline if new_deadline else None,
                     )
