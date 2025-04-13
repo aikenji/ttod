@@ -194,7 +194,7 @@ def draw_todo_list(
             break
 
         # Cursor
-        cursor = ">" if i == todo_list.cursor_pos else " "
+        cursor = "🐶" if i == todo_list.cursor_pos else " "
         stdscr.addstr(y, 0, cursor)
 
         # Checkbox
